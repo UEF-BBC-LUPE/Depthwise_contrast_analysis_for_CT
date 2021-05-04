@@ -16,7 +16,9 @@ lowerlimit = -10000; %Excludes all the pixels below this. Background needs to be
 % upperlimit = 3000; %Upper limit can be added
 
 % LOAD IMAGES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-[Dicoms, info] = load_dicoms; 
+[Dicoms, info] = load_dicoms;   %Load DCM
+%[Dicoms, info] = load_tifs;    %Load tif (load_dicoms fucntion copied and modified for tifs. Use native pixel values = comment line 24)
+
 
 
 Dicoms = Dicoms.*info.RescaleSlope+info.RescaleIntercept; %Uses the same pixel values as Analyze (The script is optimized for this scale)
@@ -141,6 +143,34 @@ h = waitbar(0,'Loading dicoms, please wait...'); %Display waitbar
 
 %Preallocating to save speed (With 2.08s, without, 2.56s on i5-6267U processor)
 temp = dicomread([num2str(path) f dicomnames(1).name]);
+Dicoms= int16(zeros(size(temp,1),size(temp,2), length(dicomnames)));
+
+for i = 1:length(dicomnames)
+    Dicoms(:,:,i)= dicomread([num2str(path) f dicomnames(i).name]);
+    waitbar(i/length(dicomnames));
+end
+close(h);
+
+    end
+%%
+    function [Dicoms, info] = load_tifs()
+        
+path = uigetdir; %Choose the folder where the DICOMS are
+
+f = filesep; %Checks what's the file separator for current operating system (windows,unix,linux)
+
+dicomnames = dir([num2str(path) f '*.tif*']); %Read dicoms. 
+disp(['Folder: ', dicomnames(1).folder]); %display folder
+%Dicom info
+info = imfinfo([num2str(path) f dicomnames(1).name]);
+
+h = waitbar(0,'Loading dicoms, please wait...'); %Display waitbar
+
+%Import dicoms
+% % % % % % % % % % % % % % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%Preallocating to save speed (With 2.08s, without, 2.56s on i5-6267U processor)
+temp = imread([num2str(path) f dicomnames(1).name]);
 Dicoms= int16(zeros(size(temp,1),size(temp,2), length(dicomnames)));
 
 for i = 1:length(dicomnames)
