@@ -174,7 +174,7 @@ temp = imread([num2str(path) f dicomnames(1).name]);
 Dicoms= int16(zeros(size(temp,1),size(temp,2), length(dicomnames)));
 
 for i = 1:length(dicomnames)
-    Dicoms(:,:,i)= dicomread([num2str(path) f dicomnames(i).name]);
+    Dicoms(:,:,i)= imread([num2str(path) f dicomnames(i).name]);
     waitbar(i/length(dicomnames));
 end
 close(h);
