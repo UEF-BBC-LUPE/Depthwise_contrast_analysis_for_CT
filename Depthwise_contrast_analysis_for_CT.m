@@ -16,16 +16,20 @@ lowerlimit = -10000; %Excludes all the pixels below this. Background needs to be
 % upperlimit = 3000; %Upper limit can be added
 
 % LOAD IMAGES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-[Dicoms, info] = load_dicoms;   %Load DCM
-%[Dicoms, info] = load_tifs;    %Load tif (load_dicoms fucntion copied and modified for tifs. Use native pixel values = comment line 24)
-
-
-
-Dicoms = Dicoms.*info.RescaleSlope+info.RescaleIntercept; %Uses the same pixel values as Analyze (The script is optimized for this scale)
-% Otherwise handles data using native pixel values (original, short integer value)
+%[Dicoms, info] = load_dicoms;   %Load DCM
+[Dicoms, info] = load_tifs;    %Load tif (load_dicoms fucntion copied and modified for tifs. Use native pixel values = comment line 24)
 
 %Function for an average image from slides for picking plugs
 createdicommasks(Dicoms);
+
+%HU conversion for Dicoms
+%Dicoms = Dicoms.*info.RescaleSlope+info.RescaleIntercept; %Uses the same pixel values as Analyze (The script is optimized for this scale)
+% Otherwise handles data using native pixel values (original, short integer value)
+
+%HU conversion for tifs
+rescale_coff = calibrate_scale(Dicoms);
+Dicoms = Dicoms.*rescale_coff(1)+rescale_coff(2); %Converting to HU
+% Otherwise handles data using native pixel values (original, short integer value)
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 
@@ -211,6 +215,177 @@ hold on;
 
     end
 %%
+    function [coefficients] = calibrate_scale(Dicoms)
+% To convert images to HU %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Gives out the fit coefficients
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Square size
+    % Edit how you like. 
+    square_radius1 = 30; %110; %Square size
+    square_radius2 = 50; %using 100 does fit, but just barely
+    buffer = 5; %How much of the figure is cropped from corners
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Or pick manually %%
+question = 2;
+while question == 2
+
+pause(0.5); %Gets rid off random freezing in linux
+figure(1);
+
+title(['Please first pick air and then water']);
+
+[xcoord, ycoord] = ginput(2); 
+xcoord = floor(xcoord);
+ycoord = floor(ycoord);
+
+% Drawing the latest rectangle where the subimages are taken
+%{
+for i = 1:2
+    text(xcoord(i),ycoord(i),num2str(i),'HorizontalAlignment','center');
+    window(:,:,i) = [xcoord(i)-square_radius xcoord(i)+square_radius; ycoord(i)-square_radius ycoord(i)+square_radius]; %EDIT THIS IF YOU NEED TO GO THROUGH MORE
+    line([window(1,1,i) window(1,2,i)], [window(2,1,i) window(2,1,i)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,2,i) window(1,2,i)], [window(2,1,i) window(2,2,i)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,i) window(1,2,i)], [window(2,2,i) window(2,2,i)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,i) window(1,1,i)], [window(2,1,i) window(2,2,i)],'Color','red','LineStyle','-','Linewidth', 2);
+end
+%}
+    %SQUARE RADIUS 1 FOR AIR
+    text(xcoord(1),ycoord(1),num2str(1),'HorizontalAlignment','center');
+
+    window(:,:,1) = [xcoord(1)-square_radius1 xcoord(1)+square_radius1; ycoord(1)-square_radius1 ycoord(1)+square_radius1]; %EDIT THIS IF YOU NEED TO GO THROUGH MORE
+    line([window(1,1,1) window(1,2,1)], [window(2,1,1) window(2,1,1)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,2,1) window(1,2,1)], [window(2,1,1) window(2,2,1)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,1) window(1,2,1)], [window(2,2,1) window(2,2,1)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,1) window(1,1,1)], [window(2,1,1) window(2,2,1)],'Color','red','LineStyle','-','Linewidth', 2);
+
+    %SQUARE RADIUS 2 FOR WATER
+    text(xcoord(2),ycoord(2),num2str(2),'HorizontalAlignment','center');
+
+    window(:,:,2) = [xcoord(2)-square_radius2 xcoord(2)+square_radius2; ycoord(2)-square_radius2 ycoord(2)+square_radius2]; %EDIT THIS IF YOU NEED TO GO THROUGH MORE
+    line([window(1,1,2) window(1,2,2)], [window(2,1,2) window(2,1,2)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,2,2) window(1,2,2)], [window(2,1,2) window(2,2,2)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,2) window(1,2,2)], [window(2,2,2) window(2,2,2)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,2) window(1,1,2)], [window(2,1,2) window(2,2,2)],'Color','red','LineStyle','-','Linewidth', 2);
+    
+    
+%end
+
+question = menu('Satisfied?','1) Yes','2) No');
+
+if question == 2
+createdicommasks(Dicoms) %Just plotting the figure again
+%plots older rectangles again
+%{
+for i = 1:2 %NOT TESTED
+    text(xcoord(i),ycoord(i),num2str(i),'HorizontalAlignment','center');
+    window(:,:,i)= [xcoord(i)-square_radius xcoord(i)+square_radius; ycoord(i)-square_radius ycoord(i)+square_radius]; %EDIT THIS IF YOU NEED TO GO THROUGH MORE
+    line([window(1,1,i) window(1,2,i)], [window(2,1,i) window(2,1,i)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,2,i) window(1,2,i)], [window(2,1,i) window(2,2,i)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,i) window(1,2,i)], [window(2,2,i) window(2,2,i)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,i) window(1,1,i)], [window(2,1,i) window(2,2,i)],'Color','red','LineStyle','-','Linewidth', 2);
+end
+%}
+%NOT TESTED
+    text(xcoord(1),ycoord(1),num2str(1),'HorizontalAlignment','center');
+
+    window(:,:,1) = [xcoord(1)-square_radius1 xcoord(1)+square_radius1; ycoord(1)-square_radius1 ycoord(1)+square_radius1]; %EDIT THIS IF YOU NEED TO GO THROUGH MORE
+    line([window(1,1,1) window(1,2,1)], [window(2,1,1) window(2,1,1)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,2,1) window(1,2,1)], [window(2,1,1) window(2,2,1)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,1) window(1,2,1)], [window(2,2,1) window(2,2,1)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,1) window(1,1,1)], [window(2,1,1) window(2,2,1)],'Color','red','LineStyle','-','Linewidth', 2);
+
+    %SQUARE RADIUS 2 FOR WATER
+    text(xcoord(2),ycoord(2),num2str(2),'HorizontalAlignment','center');
+
+    window(:,:,2) = [xcoord(2)-square_radius2 xcoord(2)+square_radius2; ycoord(2)-square_radius2 ycoord(2)+square_radius2]; %EDIT THIS IF YOU NEED TO GO THROUGH MORE
+    line([window(1,1,2) window(1,2,2)], [window(2,1,2) window(2,1,2)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,2,2) window(1,2,2)], [window(2,1,2) window(2,2,2)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,2) window(1,2,2)], [window(2,2,2) window(2,2,2)],'Color','red','LineStyle','-','Linewidth', 2);
+    line([window(1,1,2) window(1,1,2)], [window(2,1,2) window(2,2,2)],'Color','red','LineStyle','-','Linewidth', 2);
+  
+end
+
+end %while question == 2
+
+pause(0.5); %Gets rid off random freezing in linux
+figure(1);
+title(['']); %Removing the title
+
+
+%Makes a circle mask so other plugs won't get into the SUBIM
+% % % % % % [xgrid, ygrid] = meshgrid(1:square_radius*2, 1:square_radius*2);
+% % % % % % mask_alt = (xgrid-square_radius).^2 + (ygrid-square_radius).^2 <= (square_radius+buffer).^2;
+% % % % % % mask_alt = single(mask_alt);
+
+% TAKING THE VALUES FROM MEDIAN IMAGE
+
+% dicom_median = median(Dicoms,3);
+
+figure; 
+% imagesc(dicom_median)
+
+%Determines at what depth we make the analysis
+lisaa = 0;
+kyssari = 2;
+while kyssari == 2
+    lisaa = lisaa + 10;
+    syvyys = floor(size(Dicoms,3)/4)+lisaa
+    imagesc(Dicoms(:,:,syvyys))
+    kyssari = menu('Do you see the water??','1) Yes','2) No','3) Again');
+    
+    if kyssari == 3 
+        lisaa = -100;
+        kyssari = 2;
+    end
+end
+
+% Histogram
+% % % % % % testia = Dicoms(:,:,syvyys);
+% % % % % % figure; hist(testia);
+
+i = 1;
+%air = mean2(Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), syvyys));
+%air_std = std2(Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), syvyys));
+air_matrix(:,:,1) = (Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), syvyys-50)); %maybe there is a better way to do this than to first create a row then add rows via "end+1"...
+for ii = (syvyys-49):(syvyys+50)
+air_matrix(:,:,end+1) = (Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), ii));
+end
+air=mean2(air_matrix);
+air_std = std2(air_matrix);
+
+i = 2;
+%water = mean2(Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), syvyys));
+%water_std = std2(Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), syvyys));
+water_matrix(:,:,1) = (Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), syvyys-50)); %maybe there is a better way to do this than to first create a row then add rows via "end+1"...
+for ii = (syvyys-49):(syvyys+50)
+water_matrix(:,:,end+1) = (Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), ii));
+end
+water=mean2(water_matrix);
+water_std = std2(water_matrix);
+
+disp(['-----'])
+disp(['Air voxel value: ', num2str(floor(air)), ' +- ', num2str(floor(air_std))]);
+
+
+
+disp(['Water voxel value: ', num2str(floor(water)), ' +- ', num2str(floor(water_std))]);
+disp(['-----'])
+
+
+% % % % figure(69)
+% % % % plot([air, water], [-1000, 0], 'x')
+% % % % ylabel('Hounsfield scale')
+% % % % xlabel(['Original scale'])
+
+f = fit([air, water]', [-1000, 0]', 'poly1');
+
+coefficients = [f.p1, f.p2]
+
+    end
+%%
     function [SUBIM, xcoord, ycoord] = create_SUBIM(Dicoms,N,xcoord,ycoord)
 % EXTRACT SUBIMAGES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Saves also the subim coordinates [xcoord,ycoord]
@@ -221,7 +396,7 @@ hold on;
     % 1 pix = 0.036 mm
     % -> 110 pixels equal roughly 8mm diameter
     % -> 100 pixels = 7.2 mm
-    square_radius = 110; %110; %Square size 
+    square_radius = 50; %80; %110; %Square size 
     buffer = 5; %How much of the figure is cropped from corners
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
