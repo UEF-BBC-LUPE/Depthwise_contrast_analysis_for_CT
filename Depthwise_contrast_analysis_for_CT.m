@@ -27,8 +27,8 @@ createdicommasks(Dicoms);
 % Otherwise handles data using native pixel values (original, short integer value)
 
 %HU conversion for tifs
-rescale_coff = calibrate_scale(Dicoms);
-Dicoms = Dicoms.*rescale_coff(1)+rescale_coff(2); %Converting to HU
+%rescale_coff = calibrate_scale(Dicoms);
+%Dicoms = Dicoms.*rescale_coff(1)+rescale_coff(2); %Converting to HU
 % Otherwise handles data using native pixel values (original, short integer value)
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % 
@@ -172,13 +172,19 @@ h = waitbar(0,'Loading dicoms, please wait...'); %Display waitbar
 
 %Import dicoms
 % % % % % % % % % % % % % % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%imread overflows values over 32767. Use TIFF class instead.   
 
 %Preallocating to save speed (With 2.08s, without, 2.56s on i5-6267U processor)
-temp = imread([num2str(path) f dicomnames(1).name]);
-Dicoms= int16(zeros(size(temp,1),size(temp,2), length(dicomnames)));
+%temp = imread([num2str(path) f dicomnames(1).name]);
+%Dicoms= int16(zeros(size(temp,1),size(temp,2), length(dicomnames)));
+
+%Preallocation
+temp = Tiff([num2str(path) f dicomnames(1).name],'r');
+temp = read(temp);
+Dicoms= uint16(zeros(size(temp,1),size(temp,2), length(dicomnames)));
 
 for i = 1:length(dicomnames)
-    Dicoms(:,:,i)= imread([num2str(path) f dicomnames(i).name]);
+    Dicoms(:,:,i)= read(Tiff([num2str(path) f dicomnames(i).name]));
     waitbar(i/length(dicomnames));
 end
 close(h);
@@ -353,8 +359,8 @@ air_matrix(:,:,1) = (Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(
 for ii = (syvyys-49):(syvyys+50)
 air_matrix(:,:,end+1) = (Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), ii));
 end
-air=mean2(air_matrix);
-air_std = std2(air_matrix);
+air=mean2(air_matrix)
+air_std = std2(air_matrix)
 
 i = 2;
 %water = mean2(Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), syvyys));
@@ -363,8 +369,8 @@ water_matrix(:,:,1) = (Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):windo
 for ii = (syvyys-49):(syvyys+50)
 water_matrix(:,:,end+1) = (Dicoms( window(2,1,i):window(2,2,i),  window(1,1,i):window(1,2,i), ii));
 end
-water=mean2(water_matrix);
-water_std = std2(water_matrix);
+water=mean2(water_matrix)
+water_std = std2(water_matrix)
 
 disp(['-----'])
 disp(['Air voxel value: ', num2str(floor(air)), ' +- ', num2str(floor(air_std))]);
@@ -453,12 +459,12 @@ end %while question == 2
 %Makes a circle mask so other plugs won't get into the SUBIM
 [xgrid, ygrid] = meshgrid(1:square_radius*2, 1:square_radius*2);
 mask_alt = (xgrid-square_radius).^2 + (ygrid-square_radius).^2 <= (square_radius+buffer).^2;
-mask_alt = int16(mask_alt);
+mask_alt = uint16(mask_alt);
 
 h = waitbar(0,'Loading subimage, please wait...'); %Display waitbar
 
 %Preallocating to save speed (With 0.7s, without, 0.85s on i5-6267U processor)
-SUBIM= int16(zeros(square_radius*2, square_radius*2, size(Dicoms,3)));
+SUBIM= uint16(zeros(square_radius*2, square_radius*2, size(Dicoms,3)));
 
 for i = 1:size(Dicoms,3)
     SUBIM(:,:,i) = imcrop(Dicoms(:,:,i),[window(1,1) window(2,1) square_radius*2-1 square_radius*2-1]);
@@ -632,7 +638,7 @@ end
  
        sneakpeak = imrotate(dicom_swmask,rotangle); %Display the mask 
        %Draw lines for comparison
-       for i = 1:10:size(sneakpeak,2)
+       for i = 1:10:size(Dicoms,2)
          sneakpeak(i,:) = 0;
        end
            
@@ -668,7 +674,7 @@ end
  
        sneakpeak = imrotate(dicom_swmask_y,rotangle); %Display the mask 
        %Draw lines for comparison
-       for i = 1:10:size(sneakpeak,2)
+       for i = 1:10:size(Dicoms,2)
          sneakpeak(i,:) = 0;
        end
        
